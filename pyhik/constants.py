@@ -46,7 +46,8 @@ SENSOR_MAP = {
     'attendedbaggage': 'Attended Baggage',
     'recordingfailure': 'Recording Failure',
     'regionexiting': "Exiting Region",
-    'regionentrance': "Entering Region"
+    'regionentrance': "Entering Region",
+    'audioexception': "Audio Exception"
 }
 
 CAM_DEVICE = 'CAM'
