@@ -61,6 +61,9 @@ CHANNEL_NAMES = ['dynVideoInputChannelID', 'videoInputChannelID',
                  'dynInputIOPortID', 'inputIOPortID',
                  'id']
 
+ID_TYPES = ['channelID', 'dynChannelID', 'inputIOPortID',
+            'dynInputIOPortID']
+
 
 # pylint: disable=too-many-instance-attributes
 class HikCamera(object):
@@ -483,15 +486,18 @@ class HikCamera(object):
                         if str_line.find('<EventNotificationAlert') != -1:
                             # Start of event message
                             start_event = True
-                            parse_string += str_line
+                            parse_string = str_line
                         elif str_line.find('</EventNotificationAlert>') != -1:
                             # Message end found found
                             parse_string += str_line
                             start_event = False
                             if parse_string:
-                                tree = ET.fromstring(parse_string)
-                                self.process_stream(tree)
-                                self.update_stale()
+                                try:
+                                    tree = ET.fromstring(parse_string)
+                                    self.process_stream(tree)
+                                    self.update_stale()
+                                except ET.ParseError as err:
+                                    _LOGGING.warning('XML parse error in stream.')
                                 parse_string = ""
                         else:
                             if start_event:
@@ -537,13 +543,18 @@ class HikCamera(object):
                 self.element_query('eventType')).text.lower()]
             estate = tree.find(
                 self.element_query('eventState')).text
-            echid = tree.find(
-                self.element_query('channelID'))
-            if echid is None:
-                # Some devices use a different key
-                echid = tree.find(
-                    self.element_query('dynChannelID'))
-            echid = int(echid.text)
+
+            for idtype in ID_TYPES:
+                echid = tree.find(self.element_query(idtype))
+                if echid is not None:
+                    try:
+                        # Need to make sure this is actually a number
+                        echid = int(echid.text)
+                        break
+                    except ValueError:
+                        # Field must not be an integer
+                        pass
+
             ecount = tree.find(
                 self.element_query('activePostCount')).text
         except (AttributeError, KeyError, IndexError) as err:
