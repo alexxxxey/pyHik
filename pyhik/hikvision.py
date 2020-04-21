@@ -15,7 +15,7 @@ import time
 import datetime
 import logging
 import uuid
-
+import re
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
@@ -63,6 +63,9 @@ CHANNEL_NAMES = ['dynVideoInputChannelID', 'videoInputChannelID',
 
 ID_TYPES = ['channelID', 'dynChannelID', 'inputIOPortID',
             'dynInputIOPortID']
+
+
+
 
 
 # pylint: disable=too-many-instance-attributes
@@ -141,6 +144,9 @@ class HikCamera(object):
         """Return current state of motion detection property"""
         return self.motion_detection
 
+    def remove_xmlns(self, string):
+            return re.sub(' xmlns="[^"]+"', '', string)
+
     def get_motion_detection(self):
         """Fetch current motion state from camera"""
         url = ('%s/ISAPI/System/Video/inputs/'
@@ -166,7 +172,7 @@ class HikCamera(object):
             return self.motion_detection
 
         try:
-            tree = ET.fromstring(response.text)
+            tree = ET.fromstring(self.remove_xmlns(response.text))
             ET.register_namespace("", self.namespace)
             enabled = tree.find(self.element_query('enabled'))
 
@@ -235,7 +241,7 @@ class HikCamera(object):
 
     def element_query(self, element):
         """Build tree query for a given element."""
-        return '{%s}%s' % (self.namespace, element)
+        return element
 
     def initialize(self):
         """Initialize deviceInfo and available events."""
@@ -307,7 +313,7 @@ class HikCamera(object):
 
         # pylint: disable=too-many-nested-blocks
         try:
-            content = ET.fromstring(response.text)
+            content = ET.fromstring(self.remove_xmlns(response.text))
 
             if content[0].find(self.element_query('EventTrigger')):
                 event_xml = content[0].findall(
@@ -412,14 +418,11 @@ class HikCamera(object):
             return None
 
         try:
-            tree = ET.fromstring(response.text)
-            # Try to fetch namespace from XML
-            nmsp = tree.tag.split('}')[0].strip('{')
-            self.namespace = nmsp if nmsp.startswith('http') else XML_NAMESPACE
+            tree = ET.fromstring(self.remove_xmlns(response.text))
             _LOGGING.debug('Using Namespace: %s', self.namespace)
 
             for item in tree:
-                tag = item.tag.split('}')[1]
+                tag = item.tag#.split('}')[1]
                 device_info[tag] = item.text
 
             return device_info
@@ -492,7 +495,7 @@ class HikCamera(object):
                             start_event = False
                             if parse_string:
                                 try:
-                                    tree = ET.fromstring(parse_string)
+                                    tree = ET.fromstring(self.remove_xmlns(parse_string))
                                     self.process_stream(tree)
                                     self.update_stale()
                                 except ET.ParseError as err:
